@@ -17,6 +17,22 @@ win32com.__gen_path__ = os.path.join(os.path.split(__file__)[0], "gen_dir")
 import win32com.client
 import pythoncom
 
+def getOpenDocuments():
+    open_documents = {}
+    if ThisApplication.Documents.Count:
+        for i in range(ThisApplication.Documents.Count):
+            open_document = ThisApplication.Documents.Item(i+1)
+            open_documents[open_document.FullFileName] = open_document
+    return open_documents
+
+def getDocumentByPath(filename):
+    if ThisApplication.Documents.Count:
+        for i in range(ThisApplication.Documents.Count):
+            open_document = ThisApplication.Documents.Item(i+1)
+            if open_document.FullFileName == filename:
+                return open_document
+    return None
+
 
 #ThisApplication = win32com.client.gencache.EnsureDispatch("Inventor.Application")
 try:
@@ -26,24 +42,39 @@ except:
     #ThisApplication.Visible=True
 
 #foreign_filename = "C:\\Users\\t.pietrowskie\\AppData\\Roaming\\cura\\3.0\\plugins\\CuraInventorPlugin\\CuraInventorPlugin\\test\\Inventor Professional 2018\\test_cube.ipt"
-foreign_filename = "C:\\Users\\t.pietrowskie\\AppData\\Roaming\\cura\\3.0\\plugins\\CuraInventorPlugin\\CuraInventorPlugin\\test\\Inventor Professional 2018\\test_cube.iam"
+#foreign_filename = "C:\\Users\\t.pietrowskie\\AppData\\Roaming\\cura\\3.0\\plugins\\CuraInventorPlugin\\CuraInventorPlugin\\test\\Inventor Professional 2018\\test_cube.iam"
+foreign_filename = "C:\\Users\\t.pietrowskie\\AppData\\Roaming\\cura\\3.0\\plugins\\CuraInventorPlugin\\CuraInventorPlugin\\test\\Inventor Professional 2018\\test_cube.dwg"
 
 #Document = ThisApplication.ActiveDocument
 
-# Open files
-open_documents = []
-if ThisApplication.Documents.Count:
-    for i in range(ThisApplication.Documents.Count):
-        open_document = ThisApplication.Documents.Item(i+1)
-        print(open_document.FullFileName)
-        open_documents.append(open_document)
-
-if foreign_filename not in open_documents:
+if foreign_filename not in getOpenDocuments().keys():
     document = ThisApplication.Documents.Open(foreign_filename)
     document_opened = True
 else:
+    document = document = getDocumentByPath(foreign_filename)
     document_opened = False
 
+if foreign_filename.endswith(".dwg"):
+    parent_document = document
+    parent_document_opened = document_opened
+    
+    parts_or_assemblies = []
+    for sheet in parent_document.Sheets:
+        for drawing_view_i in range(sheet.DrawingViews.Count):
+            drawing_view = sheet.DrawingViews.Item(drawing_view_i+1)
+            item = drawing_view.ReferencedDocumentDescriptor.ReferencedDocument
+            item.FullDocumentName
+            fullfilename = item.FullFileName
+            if fullfilename not in parts_or_assemblies:
+                parts_or_assemblies.append(fullfilename)
+    print(parts_or_assemblies)
+    if len(parts_or_assemblies) == 1:
+        if parts_or_assemblies[0] not in getOpenDocuments().keys():
+            document = ThisApplication.Documents.Open(parts_or_assemblies[0])
+        else:
+            document = getDocumentByPath(parts_or_assemblies[0])
+else:
+    parent_document = None 
 
 STLTranslatorAddIn = ThisApplication.ApplicationAddIns.ItemById("{533E9A98-FC3B-11D4-8E7E-0010B541CD80}")
 Context = ThisApplication.TransientObjects.CreateTranslationContext()
@@ -91,3 +122,5 @@ if STLTranslatorAddIn.HasSaveCopyAsOptions(document, Context, Options):
 
 if document_opened:
     document.Close(True)
+if parent_document_opened:
+    parent_document.Close(True)
