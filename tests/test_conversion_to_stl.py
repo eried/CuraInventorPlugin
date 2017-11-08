@@ -48,7 +48,8 @@ foreign_filename = "C:\\Users\\t.pietrowskie\\AppData\\Roaming\\cura\\3.0\\plugi
 #Document = ThisApplication.ActiveDocument
 
 if foreign_filename not in getOpenDocuments().keys():
-    document = ThisApplication.Documents.Open(foreign_filename)
+    # http://help.autodesk.com/view/INVNTOR/2018/ENU/?guid=GUID-A1536C12-5AD5-4BA7-9391-2AB32C9B03C7
+    document = ThisApplication.Documents.Open(foreign_filename, False)
     document_opened = True
 else:
     document = document = getDocumentByPath(foreign_filename)
@@ -70,7 +71,7 @@ if foreign_filename.endswith(".dwg"):
     print(parts_or_assemblies)
     if len(parts_or_assemblies) == 1:
         if parts_or_assemblies[0] not in getOpenDocuments().keys():
-            document = ThisApplication.Documents.Open(parts_or_assemblies[0])
+            document = ThisApplication.Documents.Open(parts_or_assemblies[0], False)
         else:
             document = getDocumentByPath(parts_or_assemblies[0])
 else:
