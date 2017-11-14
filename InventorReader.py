@@ -71,6 +71,9 @@ class InventorReader(CommonCOMReader):
             # Or there is another sense..
             if "app_instance_visible" in options.keys():
                 options["app_instance"].Visible = options["app_instance_visible"]
+            
+            if not options["app_was_active"]:
+                options["app_instance_visible"] = options["app_instance"].Quit()
     
     
     def getOpenDocuments(self, options):
