@@ -59,8 +59,9 @@ class InventorReader(CommonCOMReader):
         options = super().startApp(options)
 
         # Inventor is by default invisible..
-        options["app_instance_visible"] = options["app_instance"].Visible
-        options["app_instance"].Visible = False
+        if not options["app_was_active"]:
+            options["app_instance_visible"] = options["app_instance"].Visible
+            options["app_instance"].Visible = False
 
         return options
 
