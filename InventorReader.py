@@ -20,6 +20,7 @@ from UM.Mesh.MeshReader import MeshReader # @UnresolvedImport
 from UM.PluginRegistry import PluginRegistry # @UnresolvedImport
 
 # Our plugin
+from .InventorConstants import ExportUnits, Resolution, OutputFileType
 from .CadIntegrationUtils.CommonComReader import CommonCOMReader # @UnresolvedImport
 from .CadIntegrationUtils.ComFactory import ComConnector # @UnresolvedImport
 
@@ -93,6 +94,9 @@ class InventorReader(CommonCOMReader):
         return None
     
     def openForeignFile(self, options):
+        document_last_opened = options["app_instance"].ActiveDocument()
+        if document_last_opened:
+            options["document_last_opened"] = document_last_opened
         if options["foreignFile"] not in self.getOpenDocuments(options).keys():
             # http://help.autodesk.com/view/INVNTOR/2018/ENU/?guid=GUID-A1536C12-5AD5-4BA7-9391-2AB32C9B03C7
             options["document"] = options["app_instance"].Documents.Open(options["foreignFile"], False)
@@ -118,6 +122,7 @@ class InventorReader(CommonCOMReader):
             print(parts_or_assemblies)
             if len(parts_or_assemblies) == 1:
                 if parts_or_assemblies[0] not in self.getOpenDocuments(options).keys():
+                    # TODO: http://help.autodesk.com/view/INVNTOR/2018/ENU/?guid=GUID-44DDD7C9-D90E-4F49-BEE2-757EE785C826
                     options["document"] = options["app_instance"].Documents.Open(parts_or_assemblies[0], False)
                 else:
                     options["document"] = self.getDocumentByPath(options, parts_or_assemblies[0])
@@ -125,11 +130,15 @@ class InventorReader(CommonCOMReader):
             options["parent_document"] = None
 
         return options
+    
+    def optionReplaceValueForKey(self, option, key, value):
+        option.Remove(key)
+        option.Insert(key, value)
 
     def exportFileAs(self, options):
         STLTranslatorAddIn = options["app_instance"].ApplicationAddIns.ItemById("{533E9A98-FC3B-11D4-8E7E-0010B541CD80}")
-        Context = options["app_instance"].TransientObjects.CreateTranslationContext()
-        Options = options["app_instance"].TransientObjects.CreateNameValueMap()
+        exportContext = options["app_instance"].TransientObjects.CreateTranslationContext()
+        exportOptions = options["app_instance"].TransientObjects.CreateNameValueMap()
         #    Save Copy As Options:
         #       Name Value Map:
         #               ExportUnits = 4
@@ -142,28 +151,15 @@ class InventorReader(CommonCOMReader):
         #               ExportFileStructure = 0
         #               OutputFileType = 0
         #               ExportColor = True
-        if STLTranslatorAddIn.HasSaveCopyAsOptions(options["document"], Context, Options):
+        if STLTranslatorAddIn.HasSaveCopyAsOptions(options["document"], exportContext, exportOptions):
+            # Set Unit
+            #options["option_exportunits"] = exportOptions["ExportUnits"] # TODO: Check whether this affects the default settings
+            exportOptions.Remove("ExportUnits")
+            exportOptions.Insert("ExportUnits", ExportUnits.Millimeter)
             
-            # Setting ExportUnits
-            #    2 - Inch
-            #    3 - Foot
-            #    4 - Centimeter
-            #    5 - Millimeter
-            #    6 - Meter
-            #    7 - Micron
-            #
-            Options.Remove("ExportUnits")
-            Options.Insert("ExportUnits", 5)
-            
-            # Set accuracy.
-            
+            # Set accuracy
             # http://help.autodesk.com/view/INVNTOR/2018/ENU/?guid=GUID-5FDFF606-1D15-4FA0-9ED1-1BF4A3BCEBF8
-            #Resolution
-            #    0 - High
-            #    1 - Medium
-            #    2 - Low
-            #    3 - Custom
- 
+            
             # *** The following are only used for “Custom” resolution
             #  
             # SurfaceDeviation
@@ -172,26 +168,36 @@ class InventorReader(CommonCOMReader):
             #                 0 to 40 to indicate values 1 to 41
             # MaxEdgeLength
             #                0 to 100 for a percentage between values computed based on the size of the model.
-            #AspectRatio
+            # AspectRatio
             #                0 to 40 for values between 1.5 to 21.5 in 0.5 increments
             #
             # https://forums.autodesk.com/t5/inventor-customization/ilogic-stl-translator-specific-parameters-info/td-p/4418665
             
-            Options.Remove("Resolution")
-            Options.Insert("Resolution", 0)
+            #options["option_resolution"] = exportOptions["Resolution"] # TODO: Check whether this affects the default settings
+            exportOptions.Remove("Resolution")
+            exportOptions.Insert("Resolution", Resolution.High)
             
             # Set output file type:
-            #   0 - binary,  1 - ASCII
-            Options.Remove("OutputFileType")
-            Options.Insert("OutputFileType", 0)
-        
-            # IOMechanismEnum Enumerator - http://help.autodesk.com/view/INVNTOR/2018/ENU/?guid=GUID-A3660CD6-8B11-48CE-9FA5-E51DCC6F8DEB
-            Context.Type = 13059 #kFileBrowseIOMechanism
-        
-            Data = options["app_instance"].TransientObjects.CreateDataMedium()
-            Data.FileName = options["tempFile"]
+            #options["option_outputfiletype"] = exportOptions["OutputFileType"] # TODO: Check whether this affects the default settings
+            exportOptions.Remove("OutputFileType")
+            exportOptions.Insert("OutputFileType", OutputFileType.binary)
             
-            STLTranslatorAddIn.SaveCopyAs(options["document"], Context, Options, Data)
+            # Set output file type:
+            #options["option_exportcolor"] = exportOptions["ExportColor"] # TODO: Check whether this affects the default settings
+            exportOptions.Remove("ExportColor")
+            exportOptions.Insert("ExportColor", False)
+            
+            # IOMechanismEnum Enumerator - http://help.autodesk.com/view/INVNTOR/2018/ENU/?guid=GUID-A3660CD6-8B11-48CE-9FA5-E51DCC6F8DEB
+            exportContext.Type = 13059 #kFileBrowseIOMechanism
+            
+            exportData = options["app_instance"].TransientObjects.CreateDataMedium()
+            exportData.FileName = options["tempFile"]
+            
+            STLTranslatorAddIn.SaveCopyAs(options["document"],
+                                          exportContext,
+                                          exportOptions,
+                                          exportData,
+                                          )
         
 
     def closeForeignFile(self, options):
@@ -205,7 +211,7 @@ class InventorReader(CommonCOMReader):
         
         """
         # Needs probably reimplementation
-        if options["sw_previous_active_file"]:
+        if options["document_last_opened"]:
             error = ctypes.c_int()
             options["app_instance"].ActivateDoc3(options["sw_previous_active_file"].GetTitle,
                                                  True,
