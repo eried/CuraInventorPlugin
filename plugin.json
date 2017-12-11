@@ -2,7 +2,7 @@
     "name": "Autodesk Inventor Integration (beta)",
     "author": "Thomas Karl Pietrowski",
     "email" : "thopiekar@gmail.com",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "supported_os" : ["Windows"],
     "description": "Gives you the possibility to open certain files using Inventor itself. Conversion is done by this plugin.",
     "api": 4,
